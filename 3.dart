@@ -4,282 +4,250 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
-  runApp(const CardGameApp());
+  runApp(const MyApp());
 }
 
-class CardGameApp extends StatelessWidget {
-  const CardGameApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: CardGameScreen(),
+      theme: ThemeData.dark(),
+      home: const TrunfoPage(),
     );
   }
 }
 
-class CardGameScreen extends StatefulWidget {
+class TrunfoPage extends StatefulWidget {
+  const TrunfoPage({super.key});
+
   @override
-  State<CardGameScreen> createState() => _CardGameScreenState();
+  State<TrunfoPage> createState() => _TrunfoPageState();
 }
 
-class _CardGameScreenState extends State<CardGameScreen>
-    with SingleTickerProviderStateMixin {
-  String leftCardImg = "";
-  String rightCardImg = "";
-  int playerWins = 0;
-  int cpuWins = 0;
-  String resultText = "";
+class _TrunfoPageState extends State<TrunfoPage> {
+  Map<String, dynamic>? jogador;
+  Map<String, dynamic>? inimigo;
 
-  late AnimationController _controller;
-  late Animation<double> _fadeAnimation;
+  int vitJ = 0;
+  int vitI = 0;
 
-  final Map<String, int> cardValues = {
-    "ACE": 14,
-    "KING": 13,
-    "QUEEN": 12,
-    "JACK": 11,
-    "10": 10,
-    "9": 9,
-    "8": 8,
-    "7": 7,
-    "6": 6,
-    "5": 5,
-    "4": 4,
-    "3": 3,
-    "2": 2,
-  };
+  String atributoEscolhido = "";
+  List<String> atributos = ["ataque", "defesa", "velocidade"];
+
+  bool loading = true;
 
   @override
   void initState() {
     super.initState();
-    drawCards();
-
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-
-    _fadeAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeInOut,
-    );
+    carregarRodada();
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  Future<Map<String, dynamic>> carregarDigimon() async {
+    final id = Random().nextInt(1400);
+    final url = "https://digi-api.com/api/v1/digimon/$id";
 
-  Future<void> drawCards() async {
-    final url = Uri.parse(
-      "https://deckofcardsapi.com/api/deck/new/draw/?count=2",
-    );
-    final response = await http.get(url);
-    final data = jsonDecode(response.body);
+    final r = await http.get(Uri.parse(url));
 
-    final card1 = data["cards"][0];
-    final card2 = data["cards"][1];
-
-    _controller.reset();
-    setState(() {
-      leftCardImg = card1["image"];
-      rightCardImg = card2["image"];
-    });
-
-    _controller.forward();
-
-    _compareCards(card1["value"], card2["value"]);
-  }
-
-  void _compareCards(String cpuValue, String playerValue) {
-    final cpu = cardValues[cpuValue]!;
-    final player = cardValues[playerValue]!;
-
-    String msg;
-
-    if (player > cpu) {
-      playerWins++;
-      msg = "Você venceu!";
-    } else if (cpu > player) {
-      cpuWins++;
-      msg = "CPU venceu!";
-    } else {
-      msg = "Empate!";
+    if (r.statusCode != 200) {
+      return await carregarDigimon();
     }
 
-    setState(() {
-      resultText = msg;
-    });
+    final d = json.decode(r.body);
+
+    return {
+      "name": d["name"],
+      "image": d["images"][0]["href"],
+
+      "ataque": Random().nextInt(100),
+      "defesa": Random().nextInt(100),
+      "velocidade": Random().nextInt(100),
+    };
+  }
+
+  Future<void> carregarRodada() async {
+    setState(() => loading = true);
+
+    jogador = await carregarDigimon();
+    inimigo = await carregarDigimon();
+
+    atributoEscolhido = atributos[Random().nextInt(atributos.length)];
+
+    setState(() => loading = false);
+  }
+
+  void jogar() {
+    final v1 = jogador![atributoEscolhido];
+    final v2 = inimigo![atributoEscolhido];
+
+    if (v1 > v2) vitJ++;
+    if (v2 > v1) vitI++;
+
+    carregarRodada();
+  }
+
+  Widget statBar(String nome, int valor, bool destaque) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          nome,
+          style: TextStyle(
+            color: destaque ? Colors.cyanAccent : Colors.white,
+            fontWeight: destaque ? FontWeight.bold : FontWeight.normal,
+          ),
+        ),
+        Container(
+          height: 8,
+          width: 120,
+          decoration: BoxDecoration(
+            color: Colors.white12,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              width: (valor / 100) * 120,
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: destaque
+                      ? [Colors.cyanAccent, Colors.blue]
+                      : [Colors.white54, Colors.white24],
+                ),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+      ],
+    );
+  }
+
+  Widget carta(Map<String, dynamic> d) {
+    return Container(
+      width: 180,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        gradient: const LinearGradient(
+          colors: [Color(0xFF111111), Color(0xFF1b1b1b)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        border: Border.all(color: Colors.cyanAccent, width: 2),
+        boxShadow: const [
+          BoxShadow(color: Colors.cyanAccent, blurRadius: 12, spreadRadius: -5),
+        ],
+      ),
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Image.network(d["image"], height: 130, fit: BoxFit.cover),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            d["name"],
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: Colors.cyan,
+            ),
+          ),
+          const SizedBox(height: 12),
+          statBar("Ataque", d["ataque"], atributoEscolhido == "ataque"),
+          statBar("Defesa", d["defesa"], atributoEscolhido == "defesa"),
+          statBar(
+            "Velocidade",
+            d["velocidade"],
+            atributoEscolhido == "velocidade",
+          ),
+        ],
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              const SizedBox(height: 20),
+      appBar: AppBar(
+        title: const Text("Super Trunfo — Digimon"),
+        centerTitle: true,
+      ),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
+              children: [
+                const SizedBox(height: 15),
 
-              // Título estilizado
-              Text(
-                "Jogo de Cartas",
-                style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white.withOpacity(0.95),
-                  letterSpacing: 1.5,
-                ),
-              ),
-
-              const SizedBox(height: 25),
-
-              // Placar bonito
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  _scoreCard("Você", playerWins, Colors.greenAccent),
-                  _scoreCard("CPU", cpuWins, Colors.redAccent),
-                ],
-              ),
-
-              const SizedBox(height: 35),
-
-              FadeTransition(
-                opacity: _fadeAnimation,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    _cardWidget(leftCardImg, "CPU"),
-                    _cardWidget(rightCardImg, "Você"),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 30),
-
-              Text(
-                resultText,
-                style: const TextStyle(
-                  fontSize: 28,
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-
-              const Spacer(),
-
-              ElevatedButton(
-                onPressed: drawCards,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.9),
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 50,
-                    vertical: 16,
+                // Atributo sorteado
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.cyan.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.cyanAccent, width: 2),
                   ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 8,
-                ),
-                child: const Text(
-                  "Nova Partida",
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ),
-
-              const SizedBox(height: 30),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  // ===== WIDGETS ESTILIZADOS =====
-
-  Widget _scoreCard(String label, int score, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 22),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white24, width: 1),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.25),
-            blurRadius: 8,
-            offset: const Offset(2, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: color,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          Text(
-            "$score",
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _cardWidget(String img, String label) {
-    return Column(
-      children: [
-        Text(label, style: const TextStyle(fontSize: 20, color: Colors.white)),
-        const SizedBox(height: 10),
-        Container(
-          width: 150,
-          height: 220,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.35),
-                blurRadius: 12,
-                offset: const Offset(3, 5),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: img.isEmpty
-                ? Container(
-                    color: Colors.white.withOpacity(0.3),
-                    child: const Center(
-                      child: CircularProgressIndicator(color: Colors.white),
+                  child: Text(
+                    "Atributo sorteado:  ${atributoEscolhido.toUpperCase()}",
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.cyanAccent,
                     ),
-                  )
-                : Image.network(img, fit: BoxFit.cover),
-          ),
-        ),
-      ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [carta(inimigo!), carta(jogador!)],
+                ),
+
+                const SizedBox(height: 25),
+
+                ElevatedButton(
+                  onPressed: jogar,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.cyanAccent,
+                    shadowColor: Colors.cyan,
+                    elevation: 10,
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16,
+                      horizontal: 40,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                  ),
+                  child: const Text(
+                    "JOGAR!",
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 20,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                Text(
+                  "Vitórias Jogador: $vitJ",
+                  style: const TextStyle(fontSize: 18),
+                ),
+                Text(
+                  "Vitórias Inimigo: $vitI",
+                  style: const TextStyle(fontSize: 18),
+                ),
+              ],
+            ),
     );
   }
 }
