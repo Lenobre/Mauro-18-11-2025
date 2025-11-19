@@ -45,6 +45,7 @@ class _TrunfoPageState extends State<TrunfoPage> {
     carregarRodada();
   }
 
+  // ----------- API -------------
   Future<Map<String, dynamic>> carregarDigimon() async {
     final id = Random().nextInt(1400);
     final url = "https://digi-api.com/api/v1/digimon/$id";
@@ -61,6 +62,7 @@ class _TrunfoPageState extends State<TrunfoPage> {
       "name": d["name"],
       "image": d["images"][0]["href"],
 
+      // Stats gerados para ser estilo trunfo
       "ataque": Random().nextInt(100),
       "defesa": Random().nextInt(100),
       "velocidade": Random().nextInt(100),
@@ -78,6 +80,7 @@ class _TrunfoPageState extends State<TrunfoPage> {
     setState(() => loading = false);
   }
 
+  // ----------- JOGAR -------------
   void jogar() {
     final v1 = jogador![atributoEscolhido];
     final v2 = inimigo![atributoEscolhido];
@@ -88,6 +91,7 @@ class _TrunfoPageState extends State<TrunfoPage> {
     carregarRodada();
   }
 
+  // ----------- COMPONENTES UI -------------
   Widget statBar(String nome, int valor, bool destaque) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,7 +113,7 @@ class _TrunfoPageState extends State<TrunfoPage> {
           child: Align(
             alignment: Alignment.centerLeft,
             child: AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
+              duration: const Duration(milliseconds: 350),
               width: (valor / 100) * 120,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -127,51 +131,86 @@ class _TrunfoPageState extends State<TrunfoPage> {
     );
   }
 
-  Widget carta(Map<String, dynamic> d) {
-    return Container(
-      width: 180,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        gradient: const LinearGradient(
-          colors: [Color(0xFF111111), Color(0xFF1b1b1b)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
+  Widget carta(Map<String, dynamic> d, bool isPlayer) {
+    return Column(
+      children: [
+        // -------- RÓTULO ("VOCÊ" ou "INIMIGO") --------
+        Text(
+          isPlayer ? "VOCÊ" : "INIMIGO",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: isPlayer ? Colors.cyanAccent : Colors.redAccent,
+          ),
         ),
-        border: Border.all(color: Colors.cyanAccent, width: 2),
-        boxShadow: const [
-          BoxShadow(color: Colors.cyanAccent, blurRadius: 12, spreadRadius: -5),
-        ],
-      ),
-      child: Column(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Image.network(d["image"], height: 130, fit: BoxFit.cover),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            d["name"],
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: Colors.cyan,
+
+        const SizedBox(height: 10),
+
+        // -------- CARTA EM SI --------
+        Container(
+          width: 180,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: const LinearGradient(
+              colors: [Color(0xFF111111), Color(0xFF1b1b1b)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
+
+            // BORDA DIFERENCIADA
+            border: Border.all(
+              color: isPlayer ? Colors.cyanAccent : Colors.redAccent,
+              width: 2.5,
+            ),
+
+            // SOMBRA ESPECIAL
+            boxShadow: [
+              BoxShadow(
+                color: (isPlayer ? Colors.cyanAccent : Colors.redAccent)
+                    .withOpacity(0.6),
+                blurRadius: 16,
+                spreadRadius: -2,
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-          statBar("Ataque", d["ataque"], atributoEscolhido == "ataque"),
-          statBar("Defesa", d["defesa"], atributoEscolhido == "defesa"),
-          statBar(
-            "Velocidade",
-            d["velocidade"],
-            atributoEscolhido == "velocidade",
+          child: Column(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.network(
+                  d["image"],
+                  height: 130,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                d["name"],
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: isPlayer ? Colors.cyanAccent : Colors.redAccent,
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              statBar("Ataque", d["ataque"], atributoEscolhido == "ataque"),
+              statBar("Defesa", d["defesa"], atributoEscolhido == "defesa"),
+              statBar(
+                "Velocidade",
+                d["velocidade"],
+                atributoEscolhido == "velocidade",
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
+  // ----------- TELA PRINCIPAL -------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -205,9 +244,13 @@ class _TrunfoPageState extends State<TrunfoPage> {
 
                 const SizedBox(height: 20),
 
+                // CARTAS LADO A LADO
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [carta(inimigo!), carta(jogador!)],
+                  children: [
+                    carta(inimigo!, false), // esquerda = inimigo
+                    carta(jogador!, true), // direita = jogador
+                  ],
                 ),
 
                 const SizedBox(height: 25),
